@@ -39,6 +39,7 @@ void DownloadPlugin::append(const QString &_url)
 
     if (fileExist && m_existPolicy == DownloadInterface::ExistThenCancel) {
         qDebug() << fileName << "exist. Cancel download";
+        emit status(_url, "Cancel", "File already exist", filePath);
         return;
     }
 
@@ -47,8 +48,6 @@ void DownloadPlugin::append(const QString &_url)
     item.key = fileName;
     item.path = filePath;
     item.temp = filePath + ".part";
-
-    qDebug() << "Download file" << filePath;
 
     if (downloadQueue.isEmpty())
         QTimer::singleShot(0, this, SLOT(startNextDownload()));
@@ -98,42 +97,45 @@ void DownloadPlugin::startNextDownload()
         return;
     }
 
-    DownloadItem item = downloadQueue.dequeue();
+    if (downloadHash.size() < m_queueSize)
+    {
+        DownloadItem item = downloadQueue.dequeue();
 
-    item.file = new QFile(item.temp);
-    if (!item.file->open(QIODevice::ReadWrite)) {
-        qDebug() << "Download error" << item.file->errorString();
-        emit error(item.url, item.file->errorString());
+        item.file = new QFile(item.temp);
+        if (!item.file->open(QIODevice::ReadWrite)) {
+            qDebug() << "Download error" << item.file->errorString();
+            emit status(item.url, "Error", item.file->errorString(), item.path);
+            startNextDownload();
+            return;
+        }
+
+        QNetworkRequest request(item.url);
+        QNetworkReply *reply = manager.get(request);
+        connect(reply, SIGNAL(downloadProgress(qint64,qint64)),
+                this, SLOT(downloadProgress(qint64,qint64)));
+        connect(reply, SIGNAL(finished()),
+                this, SLOT(downloadFinished()));
+        connect(reply, SIGNAL(readyRead()),
+                this, SLOT(downloadReadyRead()));
+        connect(reply, SIGNAL(error(QNetworkReply::NetworkError)),
+                this, SLOT(downloadError(QNetworkReply::NetworkError)));
+        connect(reply, SIGNAL(sslErrors(QList<QSslError>)),
+                this, SLOT(downloadSslErrors(QList<QSslError>)));
+
+        qDebug() << "startNextDownload" << item.url << item.temp;
+        emit status(item.url, "Download", "Start downloading file", item.url);
+
+        item.time.start();
+        downloadHash[reply] = item;
+
         startNextDownload();
-        return;
     }
-
-    QNetworkRequest request(item.url);
-    QNetworkReply *reply = manager.get(request);
-    connect(reply, SIGNAL(downloadProgress(qint64,qint64)),
-            this, SLOT(downloadProgress(qint64,qint64)));
-    connect(reply, SIGNAL(finished()),
-            this, SLOT(downloadFinished()));
-    connect(reply, SIGNAL(readyRead()),
-            this, SLOT(downloadReadyRead()));
-    connect(reply, SIGNAL(error(QNetworkReply::NetworkError)),
-            this, SLOT(downloadError(QNetworkReply::NetworkError)));
-    connect(reply, SIGNAL(sslErrors(QList<QSslError>)),
-            this, SLOT(downloadSslErrors(QList<QSslError>)));
-
-    qDebug() << "startNextDownload" << item.url << item.temp;
-    item.time.start();
-    downloadHash[reply] = item;
-
-    if (downloadHash.size() < m_downloadLimit)
-        startNextDownload();
 }
 
 void DownloadPlugin::downloadProgress(qint64 bytesReceived, qint64 bytesTotal)
 {
     QNetworkReply *reply = qobject_cast<QNetworkReply*>(sender());
     DownloadItem item = downloadHash[reply];
-
     double speed = bytesReceived * 1000.0 / item.time.elapsed();
     QString unit;
     if (speed < 1024) {
@@ -145,7 +147,7 @@ void DownloadPlugin::downloadProgress(qint64 bytesReceived, qint64 bytesTotal)
         speed /= 1024*1024;
         unit = "MB/s";
     }
-    double percent = bytesReceived * 100.0 / bytesTotal;
+    int percent = bytesReceived * 100 / bytesTotal;
 
     //qDebug() << "downloadProgress" << item.url << bytesReceived << bytesTotal << percent << speed << unit;
     emit progress(item.url, bytesReceived, bytesTotal, percent, speed, unit);
@@ -164,14 +166,17 @@ void DownloadPlugin::downloadFinished()
     DownloadItem item = downloadHash[reply];
     item.file->close();
     item.file->deleteLater();
-    bool a = QFile::rename(item.temp, item.path);
 
-    qDebug() << "downloadFinished" << item.url << item.path << a;
-    emit finished(reply->url().toString(), item.path);
+    if (reply->error() == QNetworkReply::NoError) {
+        QFile::rename(item.temp, item.path);
+        qDebug() << "downloadFinished" << item.url << item.path;
+
+        emit status(item.url, "Complete", "Download file completed", item.url);
+        emit finished(item.url, item.path);
+    }
 
     downloadHash.remove(reply);
-    if (downloadHash.size() < m_downloadLimit)
-        startNextDownload();
+    startNextDownload();
 
     reply->deleteLater();
 }
@@ -179,17 +184,10 @@ void DownloadPlugin::downloadFinished()
 void DownloadPlugin::downloadError(QNetworkReply::NetworkError) {
     QNetworkReply *reply = qobject_cast<QNetworkReply*>(sender());
     DownloadItem item = downloadHash[reply];
-    item.file->close();
-    item.file->deleteLater();
-
     qDebug() << "downloadError: " << item.url << reply->errorString();
-    emit error(item.url, reply->errorString());
 
-    downloadHash.remove(reply);
-    if (downloadHash.size() < m_downloadLimit)
-        startNextDownload();
-
-    reply->deleteLater();
+    emit status(item.url, "Error", reply->errorString(), item.url);
+    emit progress(item.url, 0, 0, 0, 0, "bytes/sec");
 }
 
 void DownloadPlugin::downloadSslErrors(QList<QSslError>) {
@@ -225,13 +223,13 @@ QString DownloadPlugin::saveFilename(const QUrl &url, bool &exist, QString &file
         basename = QUuid::createUuid();
 
     QString filePath = m_downloadPath + "/" + basename + "." + suffix;
-    exist = false;
+
     // check if complete file exist
     if (QFile::exists(filePath))
     {
         exist = true;
         if (m_existPolicy == DownloadInterface::ExistThenRename) {
-            qDebug() << filePath << "exist. Rename";
+            qDebug() << "File" << filePath << "exist. Rename";
             int i = 0;
             basename += '(';
             while (QFile::exists(m_downloadPath + "/" + basename + "(" + QString::number(i) + ")" + suffix))
@@ -241,7 +239,7 @@ QString DownloadPlugin::saveFilename(const QUrl &url, bool &exist, QString &file
             filePath = m_downloadPath + "/" + basename + "." + suffix;
         }
         else if (m_existPolicy == DownloadInterface::ExistThenOverwrite) {
-            qDebug() << filePath << "exist. Overwrite";
+            qDebug() << "File" << filePath << "exist. Overwrite";
         }
     }
 
