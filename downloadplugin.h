@@ -24,6 +24,8 @@ struct DownloadItem{
     QString temp;
     QFile *file;
     QTime time;
+    bool tempExist;
+    qint64 tempSize;
 };
 
 class DownloadPlugin : public DownloadInterface
@@ -43,6 +45,9 @@ public:
 
     void pause(const QString &url);
     void pause(const QStringList & urlList);
+
+    void resume(const QString &url);
+    void resume(const QStringList & urlList);
 
     void stop(const QString &url);
     void stop(const QStringList & urlList);
@@ -64,12 +69,13 @@ private:
     void transfer();
     void scheduleTransfer();
 
-    QString saveFilename(const QUrl &url, bool &exist, QString &fileName, bool &partExist);
+    QString saveFilename(const QUrl &url, bool &exist, QString &fileName, bool &tempExist);
 
 private:
     QNetworkAccessManager manager;
     QQueue<DownloadItem> downloadQueue;
     QHash<QNetworkReply*, DownloadItem> downloadHash;
+    QHash<QString, QNetworkReply*> urlHash;
 
     QSet<QIODevice*> replies;
     QTime stopWatch;
