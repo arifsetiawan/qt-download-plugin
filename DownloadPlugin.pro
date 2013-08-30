@@ -14,6 +14,8 @@ version = 1.0.0
 INCLUDEPATH = ../DownloadHost/interfaces
 DESTDIR = ../DownloadHost/plugins
 
-SOURCES += downloadplugin.cpp
+SOURCES += downloadplugin.cpp \
+    json.cpp
 HEADERS += downloadplugin.h \
-    ../DownloadHost/interfaces/downloader.h
+    ../DownloadHost/interfaces/downloader.h \
+    json.h

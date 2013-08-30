@@ -6,6 +6,10 @@
 #include <QFileInfo>
 #include <QTimer>
 
+#include "json.h"
+using QtJson::JsonObject;
+using QtJson::JsonArray;
+
 DownloadPlugin::DownloadPlugin(QObject * parent)
     : DownloadInterface (parent)
 {
@@ -68,30 +72,7 @@ void DownloadPlugin::append(const QStringList &urlList)
 
 void DownloadPlugin::pause(const QString &url)
 {
-    QNetworkReply *reply = urlHash[url];
-    qDebug() << url << reply;
-    disconnect(reply, SIGNAL(downloadProgress(qint64,qint64)),
-            this, SLOT(downloadProgress(qint64,qint64)));
-    disconnect(reply, SIGNAL(finished()),
-            this, SLOT(downloadFinished()));
-    disconnect(reply, SIGNAL(readyRead()),
-            this, SLOT(downloadReadyRead()));
-    disconnect(reply, SIGNAL(error(QNetworkReply::NetworkError)),
-            this, SLOT(downloadError(QNetworkReply::NetworkError)));
-    disconnect(reply, SIGNAL(sslErrors(QList<QSslError>)),
-            this, SLOT(downloadSslErrors(QList<QSslError>)));
-
-    DownloadItem item = downloadHash[reply];
-    reply->abort();
-    item.file->write( reply->readAll());
-    item.file->close();
-
-    downloadHash.remove(reply);
-    urlHash.remove(url);
-
-    startNextDownload();
-
-    reply->deleteLater();
+    stopDownload(url, true);
 }
 
 void DownloadPlugin::pause(const QStringList &urlList)
@@ -115,17 +96,47 @@ void DownloadPlugin::resume(const QStringList & urlList)
 
 void DownloadPlugin::stop(const QString &url)
 {
-
+    stopDownload(url, false);
 }
 
 void DownloadPlugin::stop(const QStringList &urlList)
 {
-
+    foreach (QString url, urlList){
+        stop(url);
+    }
 }
 
-void DownloadPlugin::setDownloadLimit(int size)
+void DownloadPlugin::stopDownload(const QString &url, bool pause)
 {
+    QNetworkReply *reply = urlHash[url];
+    disconnect(reply, SIGNAL(downloadProgress(qint64,qint64)),
+            this, SLOT(downloadProgress(qint64,qint64)));
+    disconnect(reply, SIGNAL(finished()),
+            this, SLOT(downloadFinished()));
+    disconnect(reply, SIGNAL(readyRead()),
+            this, SLOT(downloadReadyRead()));
+    disconnect(reply, SIGNAL(error(QNetworkReply::NetworkError)),
+            this, SLOT(downloadError(QNetworkReply::NetworkError)));
+    disconnect(reply, SIGNAL(sslErrors(QList<QSslError>)),
+            this, SLOT(downloadSslErrors(QList<QSslError>)));
 
+    DownloadItem item = downloadHash[reply];
+    reply->abort();
+    item.file->write( reply->readAll());
+    item.file->close();
+
+    if (!pause)
+        QFile::remove(item.temp);
+
+    downloadHash.remove(reply);
+    urlHash.remove(url);
+
+    if (pause)
+        downloadQueue.enqueue(item);
+
+    startNextDownload();
+
+    reply->deleteLater();
 }
 
 void DownloadPlugin::startNextDownload()
@@ -212,7 +223,7 @@ void DownloadPlugin::downloadProgress(qint64 bytesReceived, qint64 bytesTotal)
     }
     int percent = actualReceived * 100 / actualTotal;
 
-    qDebug() << "downloadProgress" << item.url << bytesReceived << bytesTotal << percent << speed << unit;
+    //qDebug() << "downloadProgress" << item.url << bytesReceived << bytesTotal << percent << speed << unit;
     emit progress(item.url, actualReceived, actualTotal, percent, speed, unit);
 }
 
@@ -232,6 +243,7 @@ void DownloadPlugin::downloadFinished()
 
     if (reply->error() == QNetworkReply::NoError) {
         QFile::rename(item.temp, item.path);
+        completedList.append(item);
         qDebug() << "downloadFinished" << item.url << item.path;
 
         emit status(item.url, "Complete", "Download file completed", item.url);
@@ -258,6 +270,11 @@ void DownloadPlugin::downloadError(QNetworkReply::NetworkError) {
 void DownloadPlugin::downloadSslErrors(QList<QSslError>) {
     QNetworkReply *reply = qobject_cast<QNetworkReply*>(sender());
     reply->ignoreSslErrors();
+}
+
+void DownloadPlugin::setDownloadLimit(int size)
+{
+
 }
 
 void DownloadPlugin::addSocket(QIODevice *socket)
@@ -317,4 +334,53 @@ QString DownloadPlugin::saveFilename(const QUrl &url, bool &exist, QString &file
     fileName = basename + "." + suffix;
 
     return filePath;
+}
+
+QString DownloadPlugin::getStatus() const
+{
+    QtJson::JsonArray queueList;
+    for (int i = 0; i < downloadQueue.size(); i++) {
+        DownloadItem item = downloadQueue.at(i);
+        QtJson::JsonObject queueItem;
+        queueItem["key"] = item.key;
+        queueItem["url"] = item.url;
+        queueItem["path"] = item.path;
+        queueItem["temp"] = item.temp;
+        queueList.append(queueItem);
+    }
+
+    QtJson::JsonArray downloadingList;
+    QHashIterator<QNetworkReply*, DownloadItem> i(downloadHash);
+    while (i.hasNext()) {
+        i.next();
+        DownloadItem item = i.value();
+        QtJson::JsonObject downloadingItem;
+        downloadingItem["key"] = item.key;
+        downloadingItem["url"] = item.url;
+        downloadingItem["path"] = item.path;
+        downloadingItem["temp"] = item.temp;
+        downloadingList.append(downloadingItem);
+    }
+
+    QtJson::JsonArray completeList;
+    for (int i = 0; i < completedList.size(); i++) {
+        DownloadItem item = completedList.at(i);
+        QtJson::JsonObject completeItem;
+        completeItem["key"] = item.key;
+        completeItem["url"] = item.url;
+        completeItem["path"] = item.path;
+        completeItem["temp"] = item.temp;
+        completeList.append(completeItem);
+    }
+
+    QtJson::JsonObject obj;
+    obj["queue"] = queueList;
+    obj["queueSize"] = queueList.size();
+    obj["active"] = downloadingList;
+    obj["activeSize"] = downloadingList.size();
+    obj["complete"] = completeList;
+    obj["completeSize"] = completeList.size();
+
+    QByteArray data = QtJson::serialize(obj);
+    return QString::fromUtf8(data);
 }

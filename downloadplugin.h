@@ -54,6 +54,8 @@ public:
 
     void setDownloadLimit(int size);
 
+    QString getStatus() const;
+
 private slots:
     void startNextDownload();
     void downloadProgress(qint64 bytesReceived, qint64 bytesTotal);
@@ -66,6 +68,8 @@ private:
     void addSocket(QIODevice *socket);
     void removeSocket(QIODevice *socket);
 
+    void stopDownload(const QString &url, bool pause);
+
     void transfer();
     void scheduleTransfer();
 
@@ -76,6 +80,7 @@ private:
     QQueue<DownloadItem> downloadQueue;
     QHash<QNetworkReply*, DownloadItem> downloadHash;
     QHash<QString, QNetworkReply*> urlHash;
+    QList<DownloadItem> completedList;
 
     QSet<QIODevice*> replies;
     QTime stopWatch;
