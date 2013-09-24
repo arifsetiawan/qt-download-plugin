@@ -52,7 +52,7 @@ public:
     void stop(const QString &url);
     void stop(const QStringList & urlList);
 
-    void setDownloadLimit(int size);
+    void setBandwidthLimit(int size);
 
     QString getStatus() const;
 
@@ -67,12 +67,10 @@ private slots:
 private:
     void addSocket(QIODevice *socket);
     void removeSocket(QIODevice *socket);
-
-    void stopDownload(const QString &url, bool pause);
-
     void transfer();
     void scheduleTransfer();
 
+    void stopDownload(const QString &url, bool pause);
     QString saveFilename(const QUrl &url, bool &exist, QString &fileName, bool &tempExist);
 
 private:
