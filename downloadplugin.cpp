@@ -5,6 +5,7 @@
 #include <QUuid>
 #include <QFileInfo>
 #include <QTimer>
+#include <QDesktopServices>
 
 #include "json.h"
 using QtJson::JsonObject;
@@ -13,9 +14,7 @@ using QtJson::JsonArray;
 DownloadPlugin::DownloadPlugin(QObject * parent)
     : DownloadInterface (parent)
 {
-    m_existPolicy = DownloadInterface::ExistThenOverwrite;
-    m_partialPolicy = DownloadInterface::PartialThenContinue;
-    m_userAgent = "DownloadPlugin/0.0.2";
+
 }
 
 Q_EXPORT_PLUGIN2(DownloadPlugin, DownloadPlugin)
@@ -33,6 +32,16 @@ QString DownloadPlugin::name(void) const
 QString DownloadPlugin::version() const
 {
     return "1.0";
+}
+
+void DownloadPlugin::setDefaultParameters()
+{
+    m_existPolicy = DownloadInterface::ExistThenOverwrite;
+    m_partialPolicy = DownloadInterface::PartialThenContinue;
+    m_userAgent = "DownloadPlugin/0.0.2";
+    m_bandwidthLimit = 30*1024;
+    m_queueSize = 2;
+    m_filePath = QDesktopServices::storageLocation(QDesktopServices::DocumentsLocation);
 }
 
 void DownloadPlugin::append(const QString &_url)

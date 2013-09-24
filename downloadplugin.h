@@ -39,6 +39,7 @@ public:
 
     QString name() const;
     QString version() const;
+    void setDefaultParameters();
 
     void append(const QString &url);
     void append(const QStringList & urlList);
