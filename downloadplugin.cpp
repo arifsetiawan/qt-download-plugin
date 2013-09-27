@@ -253,6 +253,8 @@ void DownloadPlugin::downloadFinished()
     item.file->deleteLater();
 
     if (reply->error() == QNetworkReply::NoError) {
+        if (QFile::exists(item.path))
+            QFile::remove(item.path);
         QFile::rename(item.temp, item.path);
         completedList.append(item);
         qDebug() << "downloadFinished" << item.url << item.path;
