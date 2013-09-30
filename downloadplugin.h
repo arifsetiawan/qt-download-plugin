@@ -41,6 +41,8 @@ public:
     QString version() const;
     void setDefaultParameters();
 
+    QString getStatus() const;
+
     void append(const QString &url);
     void append(const QStringList & urlList);
 
@@ -54,8 +56,6 @@ public:
     void stop(const QStringList & urlList);
 
     void setBandwidthLimit(int size);
-
-    QString getStatus() const;
 
 private slots:
     void startNextDownload();
