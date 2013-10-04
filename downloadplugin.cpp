@@ -24,7 +24,7 @@ DownloadPlugin::~DownloadPlugin()
 
 }
 
-QString DownloadPlugin::name(void) const
+QString DownloadPlugin::name() const
 {
     return "DownloadPlugin";
 }
@@ -335,6 +335,7 @@ QString DownloadPlugin::saveFilename(const QUrl &url, bool &exist, QString &file
         }
         else if (m_existPolicy == DownloadInterface::ExistThenOverwrite) {
             qDebug() << "File" << filePath << "exist. Overwrite";
+            QFile::remove(filePath);
         }
     }
 
