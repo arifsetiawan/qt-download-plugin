@@ -339,6 +339,8 @@ QString DownloadPlugin::saveFilename(const QUrl &url, bool &exist, QString &file
         }
     }
 
+    emit filenameSet(url.toString(), filePath);
+
     // check if part file exist
     QString filePart = filePath + ".part";
     if (QFile::exists(filePart))
