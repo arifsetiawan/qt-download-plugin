@@ -44,31 +44,9 @@ void DownloadPlugin::setDefaultParameters()
     m_filePath = QDesktopServices::storageLocation(QDesktopServices::DocumentsLocation);
 }
 
-void DownloadPlugin::append(const QString &_url)
+void DownloadPlugin::append(const QString &url)
 {
-    QUrl url = QUrl::fromEncoded(_url.toLocal8Bit());
-    bool fileExist = false;
-    bool tempExist = false;
-    QString fileName = "";
-    QString filePath = saveFilename(url, fileExist, fileName, tempExist);
-
-    if (fileExist && m_existPolicy == DownloadInterface::ExistThenCancel) {
-        qDebug() << fileName << "exist. Cancel download";
-        emit status(_url, "Cancel", "File already exist", filePath);
-        return;
-    }
-
-    DownloadItem item;
-    item.url = _url;
-    item.key = fileName;
-    item.path = filePath;
-    item.temp = filePath + ".part";
-    item.tempExist = tempExist;
-
-    if (downloadQueue.isEmpty())
-        QTimer::singleShot(0, this, SLOT(startNextDownload()));
-
-    downloadQueue.enqueue(item);
+    appendInternal(url);
 }
 
 void DownloadPlugin::append(const QStringList &urlList)
@@ -93,9 +71,9 @@ void DownloadPlugin::pause(const QStringList &urlList)
     }
 }
 
-void DownloadPlugin::resume(const QString &url)
+void DownloadPlugin::resume(const QString &url, const QString &path)
 {
-    append(url);
+    appendInternal(url, path);
 }
 
 void DownloadPlugin::resume(const QStringList & urlList)
@@ -115,6 +93,32 @@ void DownloadPlugin::stop(const QStringList &urlList)
     foreach (QString url, urlList){
         stop(url);
     }
+}
+
+void DownloadPlugin::appendInternal(const QString &url, const QString &path)
+{
+    bool fileExist = false;
+    bool tempExist = false;
+    QString fileName = "";
+    QString filePath = saveFilename(path == "" ? url : path, fileExist, fileName, tempExist, path == "");
+
+    if (fileExist && m_existPolicy == DownloadInterface::ExistThenCancel) {
+        qDebug() << fileName << "exist. Cancel download";
+        emit status(url, "Cancel", "File already exist", filePath);
+        return;
+    }
+
+    DownloadItem item;
+    item.url = url;
+    item.key = fileName;
+    item.path = filePath;
+    item.temp = filePath + ".part";
+    item.tempExist = tempExist;
+
+    if (downloadQueue.isEmpty())
+        QTimer::singleShot(0, this, SLOT(startNextDownload()));
+
+    downloadQueue.enqueue(item);
 }
 
 void DownloadPlugin::stopDownload(const QString &url, bool pause)
@@ -307,17 +311,21 @@ void DownloadPlugin::scheduleTransfer()
 {
 }
 
-QString DownloadPlugin::saveFilename(const QUrl &url, bool &exist, QString &fileName, bool &tempExist)
+QString DownloadPlugin::saveFilename(const QString &url, bool &exist, QString &fileName, bool &tempExist, bool isUrl)
 {
-    QString path = url.path();
-    QFileInfo fi = QFileInfo(path);
+    QFileInfo fi = QFileInfo(url);
     QString basename = fi.baseName();
     QString suffix = fi.completeSuffix();
 
     if (basename.isEmpty())
         basename = QUuid::createUuid();
 
-    QString filePath = m_filePath + "/" + basename + "." + suffix;
+    QString filePath = url;
+    fileName = fi.fileName();
+    if (isUrl){
+        filePath = m_filePath + "/" + basename + "." + suffix;
+        fileName = basename + "." + suffix;
+    }
 
     // check if complete file exist
     if (QFile::exists(filePath))
@@ -339,7 +347,7 @@ QString DownloadPlugin::saveFilename(const QUrl &url, bool &exist, QString &file
         }
     }
 
-    emit filenameSet(url.toString(), filePath);
+    emit filenameSet(url, filePath);
 
     // check if part file exist
     QString filePart = filePath + ".part";
@@ -347,7 +355,6 @@ QString DownloadPlugin::saveFilename(const QUrl &url, bool &exist, QString &file
     {
         tempExist = true;
     }
-    fileName = basename + "." + suffix;
 
     return filePath;
 }

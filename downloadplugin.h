@@ -44,16 +44,16 @@ public:
     QString getStatus() const;
 
     void append(const QString &url);
-    void append(const QStringList & urlList);
+    void append(const QStringList &urlList);
 
     void pause(const QString &url);
-    void pause(const QStringList & urlList);
+    void pause(const QStringList &urlList);
 
-    void resume(const QString &url);
-    void resume(const QStringList & urlList);
+    void resume(const QString &url, const QString &path = "");
+    void resume(const QStringList &urlList);
 
     void stop(const QString &url);
-    void stop(const QStringList & urlList);
+    void stop(const QStringList &urlList);
 
     void setBandwidthLimit(int size);
 
@@ -66,13 +66,15 @@ private slots:
     void downloadSslErrors(QList<QSslError>);
 
 private:
+    void appendInternal(const QString &url, const QString &path = "");
+
     void addSocket(QIODevice *socket);
     void removeSocket(QIODevice *socket);
     void transfer();
     void scheduleTransfer();
 
     void stopDownload(const QString &url, bool pause);
-    QString saveFilename(const QUrl &url, bool &exist, QString &fileName, bool &tempExist);
+    QString saveFilename(const QString &url, bool &exist, QString &fileName, bool &tempExist, bool isUrl);
 
 private:
     QNetworkAccessManager manager;
