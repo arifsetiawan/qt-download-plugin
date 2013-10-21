@@ -142,14 +142,12 @@ void DownloadPlugin::stopDownload(const QString &url, bool pause)
         item.file->write( reply->readAll());
         item.file->close();
 
-        if (!pause)
+        if (!pause) {
             QFile::remove(item.temp);
+        }
 
         downloadHash.remove(reply);
         urlHash.remove(url);
-
-        if (pause)
-            downloadQueue.enqueue(item);
 
         startNextDownload();
 
