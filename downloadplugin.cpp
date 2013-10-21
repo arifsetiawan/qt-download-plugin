@@ -124,34 +124,37 @@ void DownloadPlugin::appendInternal(const QString &url, const QString &path)
 void DownloadPlugin::stopDownload(const QString &url, bool pause)
 {
     QNetworkReply *reply = urlHash[url];
-    disconnect(reply, SIGNAL(downloadProgress(qint64,qint64)),
-            this, SLOT(downloadProgress(qint64,qint64)));
-    disconnect(reply, SIGNAL(finished()),
-            this, SLOT(downloadFinished()));
-    disconnect(reply, SIGNAL(readyRead()),
-            this, SLOT(downloadReadyRead()));
-    disconnect(reply, SIGNAL(error(QNetworkReply::NetworkError)),
-            this, SLOT(downloadError(QNetworkReply::NetworkError)));
-    disconnect(reply, SIGNAL(sslErrors(QList<QSslError>)),
-            this, SLOT(downloadSslErrors(QList<QSslError>)));
 
-    DownloadItem item = downloadHash[reply];
-    reply->abort();
-    item.file->write( reply->readAll());
-    item.file->close();
+    if (reply) {
+        disconnect(reply, SIGNAL(downloadProgress(qint64,qint64)),
+                this, SLOT(downloadProgress(qint64,qint64)));
+        disconnect(reply, SIGNAL(finished()),
+                this, SLOT(downloadFinished()));
+        disconnect(reply, SIGNAL(readyRead()),
+                this, SLOT(downloadReadyRead()));
+        disconnect(reply, SIGNAL(error(QNetworkReply::NetworkError)),
+                this, SLOT(downloadError(QNetworkReply::NetworkError)));
+        disconnect(reply, SIGNAL(sslErrors(QList<QSslError>)),
+                this, SLOT(downloadSslErrors(QList<QSslError>)));
 
-    if (!pause)
-        QFile::remove(item.temp);
+        DownloadItem item = downloadHash[reply];
+        reply->abort();
+        item.file->write( reply->readAll());
+        item.file->close();
 
-    downloadHash.remove(reply);
-    urlHash.remove(url);
+        if (!pause)
+            QFile::remove(item.temp);
 
-    if (pause)
-        downloadQueue.enqueue(item);
+        downloadHash.remove(reply);
+        urlHash.remove(url);
 
-    startNextDownload();
+        if (pause)
+            downloadQueue.enqueue(item);
 
-    reply->deleteLater();
+        startNextDownload();
+
+        reply->deleteLater();
+    }
 }
 
 void DownloadPlugin::startNextDownload()
@@ -222,24 +225,29 @@ void DownloadPlugin::startNextDownload()
 void DownloadPlugin::downloadProgress(qint64 bytesReceived, qint64 bytesTotal)
 {
     QNetworkReply *reply = qobject_cast<QNetworkReply*>(sender());
-    DownloadItem item = downloadHash[reply];
-    qint64 actualReceived = item.tempSize + bytesReceived;
-    qint64 actualTotal = item.tempSize + bytesTotal;
-    double speed = actualReceived * 1000.0 / item.time.elapsed();
-    QString unit;
-    if (speed < 1024) {
-        unit = "bytes/sec";
-    } else if (speed < 1024*1024) {
-        speed /= 1024;
-        unit = "kB/s";
-    } else {
-        speed /= 1024*1024;
-        unit = "MB/s";
-    }
-    int percent = actualReceived * 100 / actualTotal;
 
-    //qDebug() << "downloadProgress" << item.url << bytesReceived << bytesTotal << percent << speed << unit;
-    emit progress(item.url, actualReceived, actualTotal, percent, speed, unit);
+    if (reply->error() == QNetworkReply::NoError) {
+
+        DownloadItem item = downloadHash[reply];
+
+        qint64 actualReceived = item.tempSize + bytesReceived;
+        qint64 actualTotal = item.tempSize + bytesTotal;
+        double speed = actualReceived * 1000.0 / item.time.elapsed();
+        QString unit;
+        if (speed < 1024) {
+            unit = "bytes/sec";
+        } else if (speed < 1024*1024) {
+            speed /= 1024;
+            unit = "kB/s";
+        } else {
+            speed /= 1024*1024;
+            unit = "MB/s";
+        }
+        int percent = actualReceived * 100 / actualTotal;
+
+        //qDebug() << "downloadProgress" << item.url << bytesReceived << bytesTotal << percent << speed << unit;
+        emit progress(item.url, actualReceived, actualTotal, percent, speed, unit);
+    }
 }
 
 void DownloadPlugin::downloadReadyRead()
@@ -252,11 +260,14 @@ void DownloadPlugin::downloadReadyRead()
 void DownloadPlugin::downloadFinished()
 {
     QNetworkReply *reply = qobject_cast<QNetworkReply*>(sender());
-    DownloadItem item = downloadHash[reply];
-    item.file->close();
-    item.file->deleteLater();
 
     if (reply->error() == QNetworkReply::NoError) {
+
+        DownloadItem item = downloadHash[reply];
+
+        item.file->close();
+        item.file->deleteLater();
+
         if (QFile::exists(item.path))
             QFile::remove(item.path);
         QFile::rename(item.temp, item.path);
@@ -265,12 +276,12 @@ void DownloadPlugin::downloadFinished()
 
         emit status(item.url, "Complete", "Download file completed", item.url);
         emit finished(item.url, item.path);
+
+        downloadHash.remove(reply);
+        urlHash.remove(item.url);
+
+        startNextDownload();
     }
-
-    downloadHash.remove(reply);
-    urlHash.remove(item.url);
-
-    startNextDownload();
 
     reply->deleteLater();
 }
@@ -279,10 +290,16 @@ void DownloadPlugin::downloadError(QNetworkReply::NetworkError)
 {
     QNetworkReply *reply = qobject_cast<QNetworkReply*>(sender());
     DownloadItem item = downloadHash[reply];
-    qDebug() << "downloadError: " << item.url << reply->errorString();
+    qDebug() << "downloadError: " << item.url << reply->errorString() << reply;
 
     emit status(item.url, "Error", reply->errorString(), item.url);
     emit progress(item.url, 0, 0, 0, 0, "bytes/sec");
+
+    // remove download when error
+    downloadHash.remove(reply);
+    urlHash.remove(item.url);
+
+    startNextDownload();
 }
 
 void DownloadPlugin::downloadSslErrors(QList<QSslError>)
