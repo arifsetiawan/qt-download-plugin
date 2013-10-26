@@ -76,10 +76,10 @@ void DownloadPlugin::resume(const QString &url, const QString &path)
     appendInternal(url, path);
 }
 
-void DownloadPlugin::resume(const QStringList & urlList)
+void DownloadPlugin::resume(const QList<DownloadResumePair> & urlList)
 {
-    foreach (QString url, urlList){
-        resume(url);
+    foreach (DownloadResumePair downloadPair, urlList){
+        resume(downloadPair.first, downloadPair.second);
     }
 }
 
@@ -158,7 +158,7 @@ void DownloadPlugin::stopDownload(const QString &url, bool pause)
 void DownloadPlugin::startNextDownload()
 {
     if (downloadQueue.isEmpty()) {
-        emit finishedAll();
+        emit queueEmpty();
         return;
     }
 

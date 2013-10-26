@@ -50,7 +50,7 @@ public:
     void pause(const QStringList &urlList);
 
     void resume(const QString &url, const QString &path = "");
-    void resume(const QStringList &urlList);
+    void resume(const QList<DownloadResumePair> & urlList);
 
     void stop(const QString &url);
     void stop(const QStringList &urlList);
