@@ -1,3 +1,11 @@
+/*********************************************************************
+** Copyright © 2013 Nurul Arif Setiawan <n.arif.setiawan@gmail.com>
+** All rights reserved.
+**
+** See the file "LICENSE.txt" for the full license governing this code
+**
+**********************************************************************/
+
 #include "downloadplugin.h"
 
 #include <QDebug>
@@ -6,10 +14,6 @@
 #include <QFileInfo>
 #include <QTimer>
 #include <QDesktopServices>
-
-#include "json.h"
-using QtJson::JsonObject;
-using QtJson::JsonArray;
 
 DownloadPlugin::DownloadPlugin(QObject * parent)
     : DownloadInterface (parent)
@@ -306,24 +310,10 @@ void DownloadPlugin::downloadSslErrors(QList<QSslError>)
     reply->ignoreSslErrors();
 }
 
-void DownloadPlugin::setBandwidthLimit(int size)
+void DownloadPlugin::setBandwidthLimit(int bytesPerSecond)
 {
-}
-
-void DownloadPlugin::addSocket(QIODevice *socket)
-{
-}
-
-void DownloadPlugin::removeSocket(QIODevice *socket)
-{
-}
-
-void DownloadPlugin::transfer()
-{
-}
-
-void DownloadPlugin::scheduleTransfer()
-{
+    m_bandwidthLimit = bytesPerSecond;
+    // TODO :: implement rate controller
 }
 
 QString DownloadPlugin::saveFilename(const QString &url, bool &exist, QString &fileName, bool &tempExist, bool isUrl)
@@ -372,53 +362,4 @@ QString DownloadPlugin::saveFilename(const QString &url, bool &exist, QString &f
     }
 
     return filePath;
-}
-
-QString DownloadPlugin::getStatus() const
-{
-    QtJson::JsonArray queueList;
-    for (int i = 0; i < downloadQueue.size(); i++) {
-        DownloadItem item = downloadQueue.at(i);
-        QtJson::JsonObject queueItem;
-        queueItem["key"] = item.key;
-        queueItem["url"] = item.url;
-        queueItem["path"] = item.path;
-        queueItem["temp"] = item.temp;
-        queueList.append(queueItem);
-    }
-
-    QtJson::JsonArray downloadingList;
-    QHashIterator<QNetworkReply*, DownloadItem> i(downloadHash);
-    while (i.hasNext()) {
-        i.next();
-        DownloadItem item = i.value();
-        QtJson::JsonObject downloadingItem;
-        downloadingItem["key"] = item.key;
-        downloadingItem["url"] = item.url;
-        downloadingItem["path"] = item.path;
-        downloadingItem["temp"] = item.temp;
-        downloadingList.append(downloadingItem);
-    }
-
-    QtJson::JsonArray completeList;
-    for (int i = 0; i < completedList.size(); i++) {
-        DownloadItem item = completedList.at(i);
-        QtJson::JsonObject completeItem;
-        completeItem["key"] = item.key;
-        completeItem["url"] = item.url;
-        completeItem["path"] = item.path;
-        completeItem["temp"] = item.temp;
-        completeList.append(completeItem);
-    }
-
-    QtJson::JsonObject obj;
-    obj["queue"] = queueList;
-    obj["queueSize"] = queueList.size();
-    obj["active"] = downloadingList;
-    obj["activeSize"] = downloadingList.size();
-    obj["complete"] = completeList;
-    obj["completeSize"] = completeList.size();
-
-    QByteArray data = QtJson::serialize(obj);
-    return QString::fromUtf8(data);
 }

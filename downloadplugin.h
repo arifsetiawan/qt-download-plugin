@@ -1,7 +1,15 @@
+/*********************************************************************
+** Copyright © 2013 Nurul Arif Setiawan <n.arif.setiawan@gmail.com>
+** All rights reserved.
+**
+** See the file "LICENSE.txt" for the full license governing this code
+**
+**********************************************************************/
+
 #ifndef DOWNLOADPLUGIN_H
 #define DOWNLOADPLUGIN_H
 
-#include "downloader.h"
+#include "downloadinterface.h"
 #include <QObject>
 #include <QtPlugin>
 #include <QNetworkAccessManager>
@@ -17,6 +25,10 @@
 #include <QNetworkRequest>
 #include <QSslError>
 
+/**
+ * Download item is several variables about a download.
+ * Used in download queue.
+ */
 struct DownloadItem{
     QString key;
     QString url;
@@ -28,6 +40,10 @@ struct DownloadItem{
     qint64 tempSize;
 };
 
+/**
+ * DownloadInterface implementation.
+ * \see DownloadInterface for detailed comments about Download plugin.
+ */
 class DownloadPlugin : public DownloadInterface
 {
     Q_OBJECT
@@ -41,8 +57,6 @@ public:
     QString version() const;
     void setDefaultParameters();
 
-    QString getStatus() const;
-
     void append(const QString &url);
     void append(const QStringList &urlList);
 
@@ -55,10 +69,14 @@ public:
     void stop(const QString &url);
     void stop(const QStringList &urlList);
 
-    void setBandwidthLimit(int size);
+    void setBandwidthLimit(int bytesPerSecond);
 
 private slots:
     void startNextDownload();
+
+    /**
+     * Slots for QNetworkReply.
+     */
     void downloadProgress(qint64 bytesReceived, qint64 bytesTotal);
     void downloadReadyRead();
     void downloadFinished();
@@ -67,12 +85,6 @@ private slots:
 
 private:
     void appendInternal(const QString &url, const QString &path = "");
-
-    void addSocket(QIODevice *socket);
-    void removeSocket(QIODevice *socket);
-    void transfer();
-    void scheduleTransfer();
-
     void stopDownload(const QString &url, bool pause);
     QString saveFilename(const QString &url, bool &exist, QString &fileName, bool &tempExist, bool isUrl);
 
@@ -82,10 +94,6 @@ private:
     QHash<QNetworkReply*, DownloadItem> downloadHash;
     QHash<QString, QNetworkReply*> urlHash;
     QList<DownloadItem> completedList;
-
-    QSet<QIODevice*> replies;
-    QTime stopWatch;
-    bool transferScheduled;
 };
 
 #endif // DOWNLOADPLUGIN_H

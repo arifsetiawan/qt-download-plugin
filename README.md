@@ -1,9 +1,34 @@
 # Qt Download Plugin
 
-Friend of [download host](https://github.com/arifsetiawan/qt-download-host)
+Resumable Qt download plugin.
 
-Downloader interface defined [here](https://github.com/arifsetiawan/qt-download-host/blob/master/interfaces/downloader.h)
+See `DownloadInterface` for plugin methods and signals
 
-Built with Qt 4.8.1 with MSVC2008 on Windows 7 32 bit
+## How to use
 
+#### 1. Load plugin using `QPluginLoader`
+#### 2. Set plugin parameters:
 
+```
+downloader.setQueueSize(size)
+downloader.setFilePath(path)
+downloader.setUserAgent(agent)
+downloader.setExistPolicy(policy)
+downloader.setPartialPolicy(policy)
+```
+
+alternatively one can use
+
+```
+downloader.setDefaultParameters();
+```
+
+#### 3. Start download using `append`
+
+```
+downloader.append(url);
+```
+
+## Example
+
+`PluginHost` project shows examples how to use download plugin. Clone the project in the same directory as the plugin.

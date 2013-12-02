@@ -5,15 +5,10 @@ CONFIG += plugin
 CONFIG -= app_bundle
 version = 1.0.0
 
-ROOT = ../../../
-BIN = ../../bin
-
-INCLUDEPATH = $$ROOT/interfaces
-DESTDIR = $$BIN
-MOC_DIR = moc
-OBJECTS_DIR = obj
-SOURCES += downloadplugin.cpp \
-    json.cpp
+DESTDIR = ../Output
+SOURCES += downloadplugin.cpp
 HEADERS += downloadplugin.h \
-    $$ROOT/interfaces/downloader.h \
-    json.h
+    downloadinterface.h
+
+OTHER_FILES += \
+    README.md
