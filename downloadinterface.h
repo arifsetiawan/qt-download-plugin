@@ -173,22 +173,22 @@ signals:
     /**
      * Signal emitted when file name is set and download will begin.
      */
-    void filenameSet(const QString url, const QString fileName);
+    void filenameSet(const QString &url, const QString &fileName);
 
     /**
      * Signal emitted when download complete.
      */
-    void finished(const QString url, const QString fileName);
+    void finished(const QString &url, const QString &fileName);
 
     /**
      * Signal emitted to update download progress.
      */
-    void progress(const QString url, qint64 bytesReceived, qint64 bytesTotal, double percent, double speed, QString unit);
+    void progress(const QString &url, const qint64 bytesReceived, const qint64 bytesTotal, const double percent, const double speed, const QString &unit);
 
     /**
      * Signal emitted to update download status
      */
-    void status(const QString url, const QString status, const QString message, const QString data);
+    void status(const QString &url, const QString &status, const QString &message, const QString &data);
 
 protected:
     int m_queueSize;

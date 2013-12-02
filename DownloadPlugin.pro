@@ -10,5 +10,4 @@ SOURCES += downloadplugin.cpp
 HEADERS += downloadplugin.h \
     downloadinterface.h
 
-OTHER_FILES += \
-    README.md
+OTHER_FILES +=

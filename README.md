@@ -2,7 +2,7 @@
 
 Resumable Qt download plugin.
 
-See `DownloadInterface` for plugin methods and signals
+See [`DownloadInterface`](https://github.com/arifsetiawan/qt-download-plugin/blob/master/downloadinterface.h) for plugin methods and signals
 
 ## How to use
 
@@ -31,4 +31,4 @@ downloader.append(url);
 
 ## Example
 
-`PluginHost` project shows examples how to use download plugin. Clone the project in the same directory as the plugin.
+[`PluginHost`](https://github.com/arifsetiawan/qt-plugin-host) project shows examples how to use download plugin. Clone the project in the same directory as the plugin.
